@@ -1,0 +1,8 @@
+{
+	"key": "Twitter API Key here",
+	"secret": "Twitter API Secret here",
+	"token": "Telegram Bot Token here",
+	"defaultSubscribers": [],
+	"hookSecret": "Telegram Hook URL Secret (input random value)",
+	"hookUrl": "https://tww.khinenw.tk/"
+}
