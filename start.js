@@ -297,8 +297,8 @@ if(!useCert){
 		method: 'POST',
 		json: true,
 		formData: {
-			url: hook
+			url: config.hookUrl + hook
 		},
 		url: _baseurl + 'setWebhook'
 	});
-}else api.setWebhook(hook, options.crt);
+}else api.setWebhook(config.hookUrl + hook, options.crt);
