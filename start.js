@@ -23,7 +23,7 @@ try{
 }catch(e){
 	dfs.writeFileSync('./last.json', JSON.stringify({
 		last: Date.now()
-	});
+	}));
 }
 
 var lastUpdate = require('./last.json').last;
@@ -119,7 +119,7 @@ var handleHook = (message) => {
 			var body = JSON.parse(body);
 
 			array.each(body.statuses, (v, callback) => {
-				saveTweet(v).then((obj) = > {
+				saveTweet(v).then((obj) => {
 					async.each(subscribers, (v, cb) => {
 						sendTweet(v).then(() => {
 							sentCount++;
@@ -150,7 +150,7 @@ var handleHook = (message) => {
 			method: 'GET',
 			uri: searchUrl,
 			qs: {
-				'"月曜日のたわわ　その' + number + '" from:Strangestone filter:twimg',
+				q: '"月曜日のたわわ　その' + number + '" from:Strangestone filter:twimg',
 				result_type: 'recent',
 				count: 1
 			},
@@ -346,7 +346,7 @@ rq({
 		var body = JSON.parse(body);
 
 		array.each(body.statuses, (v, callback) => {
-			saveTweet(v).then((obj) = > {
+			saveTweet(v).then((obj) => {
 				if(date < lastUpdate){
 					callback();
 					return;
