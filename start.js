@@ -38,7 +38,7 @@ var saveSubscriptions = () => {
 };
 
 var unfixchar = ((v) => {
-	return v.replace(/[\uFF01-\uFF5E]/g, function(token) {
+	return v.replace(/[\u0030-\u0039]/g, function(token) {
 		return String.fromCharCode(token.charCodeAt(0) + 65248);
 	});
 });
@@ -118,26 +118,28 @@ var handleHook = (message) => {
 				  "[깃허브](https://github.com/HelloWorld017/TawawaBot) 에서 소스를 확인하실 수 있습니다."
 		});
 	}else if(message.text.startsWith('/tawawa')){
-		var number = unfixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
+		var number = unfixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i, ''));
 		var sentCount = 0;
 
 		var handle = (body) => {
 			return new Promise((resolve, reject) => {
-				var body = JSON.parse(body);
+				body = JSON.parse(body);
 
-				array.each(body.statuses, (v, callback) => {
+				async.each(body.statuses, (v, callback) => {
 					saveTweet(v).then((obj) => {
 						return sendTweet(id, obj);
 					}).then(() => {
 						sentCount++;
 						callback();
+					}).catch((e) => {
+						console.error(e);
 					});
 				}, () => {
 					resolve();
 				});
 			});
 		};
-
+		
 		rq({
 			method: 'GET',
 			uri: searchUrl,
@@ -164,7 +166,7 @@ var handleHook = (message) => {
 					'Authorization': token
 				}
 			});
-		}).then(handle, () => {}).then(() => {
+		}).then(handle, (err) => {console.error(err);}).then(() => {
 			api.sendMessage({
 				chat_id: id,
 				text: sentCount + "개의 검색결과를 찾았습니다."
@@ -382,7 +384,7 @@ rq({
 	oldQuery.headers.Authorization = query.headers.Authorization = token;
 
 	var handle = (body) => {
-		var body = JSON.parse(body);
+		body = JSON.parse(body);
 
 		async.each(body.statuses, (v, callback) => {
 			saveTweet(v).then((obj) => {
