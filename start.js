@@ -114,7 +114,7 @@ var handleHook = (message) => {
 		});
 	}else if(message.text.startsWith('/tawawa')){
 		var number = fixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
-		number = numbername.replace(/[^a-zA-Z0-9]/g, (match) => {
+		number = number.replace(/[^a-zA-Z0-9]/g, (match) => {
 			return "p" + match.codePointAt(0);
 		}).slice(0, 20);
 
