@@ -48,7 +48,7 @@ var handleHook = (message) => {
 				text: "이미 구독중입니다!"
 			});
 		}else{
-			subscribers.push(v);
+			subscribers.push(id);
 			saveSubscriptions().then(() => {
 				api.sendMessage({
 					chat_id: id,
