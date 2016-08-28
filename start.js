@@ -171,7 +171,7 @@ app.use(bodyParser.text({
 app.post('/' + hook, (req, res, next) => {
 	var item = JSON.parse(req.body);
 
-	if(item.message) handleHook(item.mesage);
+	if(item.message) handleHook(item.message);
 	res.end(':D');
 });
 
@@ -345,7 +345,7 @@ rq({
 	var handle = (body) => {
 		var body = JSON.parse(body);
 
-		array.each(body.statuses, (v, callback) => {
+		async.each(body.statuses, (v, callback) => {
 			saveTweet(v).then((obj) => {
 				if(date < lastUpdate){
 					callback();
