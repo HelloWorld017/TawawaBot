@@ -37,6 +37,12 @@ var saveSubscriptions = () => {
 	return fs.writeFile('subscribers.json', JSON.stringify(subscribers));
 };
 
+var unfixchar = ((v) => {
+	return v.replace(/[\uFF01-\uFF5E]/g, function(token) {
+		return String.fromCharCode(token.charCodeAt(0) - 65248);
+	});
+});
+
 var handleHook = (message) => {
 	var id = message.chat.id;
 	if(typeof message.text !== 'string') return;
@@ -112,7 +118,7 @@ var handleHook = (message) => {
 				  "[깃허브](https://github.com/HelloWorld017/TawawaBot) 에서 소스를 확인하실 수 있습니다."
 		});
 	}else if(message.text.startsWith('/tawawa')){
-		var number = fixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
+		var number = unfixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
 		var sentCount = 0;
 
 		var handle = (body) => {
