@@ -294,12 +294,12 @@ var sendTweet = (id, obj) => {
 					  "\n" +
 					  "번역문 (구글번역): " + obj.text_translation
 			}).then(() => {
-				return api.sendMessage({
+				/*return api.sendMessage({
 					chat_id: id,
 					parse_mode: 'Markdown',
 					text: "[트윗링크](" + obj.link + ")"
 				});
-			}).then(() => {
+			}).then(() => {*/
 				resolve();
 			});
 		});
