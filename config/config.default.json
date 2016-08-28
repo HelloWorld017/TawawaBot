@@ -4,5 +4,14 @@
 	"token": "Telegram Bot Token here",
 	"defaultSubscribers": [],
 	"hookSecret": "Telegram Hook URL Secret (input random value)",
-	"hookUrl": "https://tww.khinenw.tk/"
+	"hookUrl": "https://tww.khinenw.tk/",
+	"dictionary": {
+		"月曜日のたわわ": "월요일의 타와와",
+		"たわわ": "타와와",
+		"社畜諸兄にたわわをお届けします": "샐러리맨 여러분에게 타와와를 보내드립니다",
+		"先パイ": "선배",
+		"直帰": "조끼",
+		"おじーちゃーん": "아저씨",
+		"来たよ": "왔어요"
+	}
 }

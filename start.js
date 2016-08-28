@@ -4,20 +4,34 @@ var chalk = require('chalk');
 var dfs = require('fs');
 var download = require('download');
 var express = require('express');
+var fixchar = require('fixchar');
 var fs = require('fs-promise');
 var http = require('http');
 var logger = require('morgan');
 var rq = require('request-promise');
 var telegram = require('telegram-bot-api');
+var translate = require('google-translate-api');
 
 var config = require('./config/');
 
 var useCert = (process.env.CERT === 'true');
 var debug = (process.env.NODE_ENV || 'development') === 'development';
 var subscribers = [];
-var lastUpdate = Date.now();
+
+try{
+	dfs.accessFileSync('./last.json')
+}catch(e){
+	dfs.writeFileSync('./last.json', JSON.stringify({
+		last: Date.now()
+	});
+}
+
+var lastUpdate = require('./last.json').last;
 var targets = [];
 var hook = config.hookSecret + config.token + Math.random().toString(16).substr(3);
+
+var searchUrl = 'https://api.twitter.com/1.1/search/tweets.json';
+var userAgent = 'TawawaBot 1.0';
 
 var saveSubscriptions = () => {
 	return fs.writeFile('subscribers.json', JSON.stringify(subscribers));
@@ -26,7 +40,7 @@ var saveSubscriptions = () => {
 var handleHook = (message) => {
 	var id = message.chat.id;
 	if(typeof message.text !== 'string') return;
-	
+
 	if(message.text.startsWith('/subscribe')){
 		if(subscribers.indexOf(id) !== -1){
 			api.sendMessage({
@@ -47,7 +61,7 @@ var handleHook = (message) => {
 					parse_mode: 'Markdown',
 					text: '구독 과정 중에 오류가 발생했습니다 :(\n이 사실을 @Khinenw 에게 알려주세요!'
 				});
-				
+
 				console.error(err);
 			});
 		}
@@ -61,7 +75,7 @@ var handleHook = (message) => {
 			subscribers = subscribers.filter((v) => {
 				v !== id
 			});
-			
+
 			saveSubscriptions().then(() => {
 				api.sendMessage({
 					chat_id: id,
@@ -74,7 +88,7 @@ var handleHook = (message) => {
 					parse_mode: 'Markdown',
 					text: '구독을 해지하던 과정 중에 오류가 발생했습니다 :(\n이 사실을 @Khinenw 에게 알려주세요!'
 				});
-				
+
 				console.error(err);
 			});
 		}
@@ -83,12 +97,68 @@ var handleHook = (message) => {
 			chat_id: id,
 			sticker: './sticker.jpg'
 		});
-		
+
 		api.sendMessage({
 			chat_id: id,
 			parse_mode: 'Markdown',
-			text: "이 봇은 매주 월요일 [Strangestone](https://twitter.com/Strangestone)의 트위터에 올라오는 `월요일의 타와와`를 구독중인 채팅방에 보내주는 역할을 하고 있습니다.\n\n구독하시려면 `/subscribe@TawawaBot` 명령어를, 구독을 해지하시려면 `/unsubscribe@TawawaBot` 명령어를 입력해주세요!"
+			text: "이 봇은 매주 월요일 [히무라 키세키](https://twitter.com/Strangestone)의 트위터에 올라오는 `월요일의 타와와`를 구독중인 채팅방에 보내주는 역할을 하고 있습니다.\n" +
+				  "\n" +
+				  "구독하시려면 `/subscribe@TawawaBot` 명령어를, 구독을 해지하시려면 `/unsubscribe@TawawaBot` 명령어를 입력해주세요!\n" +
+				  "지난 화를 보시려면 `/tawawa@TawawaBot [화 수]` 를 입력해주세요!\n" +
+				  "예시) `/tawawa@TawawaBot 79`\n" +
+				  "\n" +
+				  "문의사항이 있으면 @Khinenw 에게 연락주세요!\n" +
+				  "이 봇이 보내주는 이미지의 저작권은 모두 원작자(히무라 키세키)에게 있습니다.\n" +
+				  "[깃허브](https://github.com/HelloWorld017/TawawaBot) 에서 소스를 확인하실 수 있습니다."
 		});
+	}else if(message.text.startsWith('/tawawa')){
+		var number = fixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
+		var sentCount = 0;
+
+		var handle = (body) => {
+			var body = JSON.parse(body);
+
+			array.each(body.statuses, (v, callback) => {
+				saveTweet(v).then((obj) = > {
+					async.each(subscribers, (v, cb) => {
+						sendTweet(v).then(() => {
+							sentCount++;
+							cb();
+						});
+					}, () => {
+						callback();
+					});
+				});
+			});
+		};
+
+		rq({
+			method: 'GET',
+			uri: searchUrl,
+			qs: {
+				q: '"社畜諸兄にたわわをお届けします　その' + number + '" from:Strangestone filter:twimg',
+				result_type: 'recent',
+				count: 1
+			},
+			headers: {
+				'User-Agent': userAgent,
+				'Authorization': token
+			}
+		}).then(handle, () => {});
+
+		rq({
+			method: 'GET',
+			uri: searchUrl,
+			qs: {
+				'"月曜日のたわわ　その' + number + '" from:Strangestone filter:twimg',
+				result_type: 'recent',
+				count: 1
+			},
+			headers: {
+				'User-Agent': userAgent,
+				'Authorization': token
+			}
+		}).then(handle, () => {})
 	}
 };
 
@@ -100,7 +170,7 @@ app.use(bodyParser.text({
 
 app.post('/' + hook, (req, res, next) => {
 	var item = JSON.parse(req.body);
-	
+
 	if(item.message) handleHook(item.mesage);
 	res.end(':D');
 });
@@ -115,22 +185,119 @@ var api = new telegram({
 
 var query = {
 	method: 'GET',
-	uri: 'https://api.twitter.com/1.1/search/tweets.json',
+	uri: searchUrl,
 	qs: {
 		q: '"月曜日のたわわ　その" from:Strangestone filter:twimg',
 		result_type: 'recent',
 		count: 10
 	},
 	headers: {
-		'User-Agent': 'Tawawa Bot'
+		'User-Agent': userAgent
 	}
 };
+
+var oldQuery = {
+	method: 'GET',
+	uri: searchUrl,
+	qs: {
+		q: '"社畜諸兄にたわわをお届けします　その" from:Strangestone filter:twimg',
+		result_type: 'recent',
+		count: 10
+	},
+	headers: {
+		'User-Agent': userAgent
+	}
+};
+
+var translate_dictionary = config.dictionary;
 
 var bearer = new Buffer(`${config.key}:${config.secret}`).toString('base64');
 var token = undefined;
 
 var getExt = (url) => {
 	return url.split('.').pop();
+};
+
+var getName = (v) => {
+	var match = v.match(/月曜日のたわわ　その([^　]*)　/);
+	if(match === null){
+		match = v.match(/社畜諸兄にたわわをお届けします　その([^　]*)　/);
+	}
+
+	if(match === null){
+		return false;
+	}
+
+	var name = fixchar(match[1]); //Fullwidth -> Halfwidth
+	name.replace(/[^a-zA-Z0-9]/g, (match) => {
+		return "p" + match.codePointAt(0);
+	});
+	return name.slice(0, 20);
+};
+
+var saveTweet = (v) => {
+	return new Promise((resolve, reject) => {
+		if(!v.text){
+			reject(new Error('Wrong Text!'));
+			return;
+		}
+
+		var name = getName(v.text);
+		if(name === false){
+			reject(new Error('Wrong Name!'));
+			return;
+		}
+
+		if(v.entities.media === undefined){
+			reject(new Error('No Media!'));
+			return;
+		}
+
+		var media = [];
+		var baseFolder = './assets/' + name + '/';
+		fs.access(baseFolder + 'tweet.json', fs.F_OK).then(() => {
+			resolve(require(baseFolder + 'tweet.json'));
+		}, () => {
+			fs.access(baseFolder, fs.F_OK).catch((err) => {
+				return fs.mkdir(baseFolder);
+			}).then(() => {
+				async.eachOf(v.entities.media.map(v => v['media_url_https']), (v, k, cb) => {
+					var target = baseFolder + k + getExt(v);
+					media.push(target);
+
+					fs.access(target, fs.F_OK).catch((err) => {
+						return download(f).pipe(dfs.createWriteStream(target));
+					}).catch((err) => {
+						console.error(chalk.red('Error while downloading image!'));
+						console.error(err);
+					}).then(() => {
+						if(debug) console.log('Done iterating media.');
+						cb();
+					});
+				}, () => {
+					var text = v.text;
+					Object.keys(dictionary).forEach((k) => {
+						while(text.includes(k)) text = text.replace(k, dictionary[k]);
+					});
+
+					translate(v.text, {from: 'ja', to: 'ko'}).then((translation) => {
+						var obj = {
+							name: name,
+							text: v.text,
+							text_translation: translation,
+							media: media,
+							date: new Date(v.date).getTime()
+						};
+
+						console.log(chalk.cyan('Downloaded ' + name));
+						return fs.writeFile(baseFolder + 'tweet.json', JSON.stringify(obj));
+					}).then(() => {
+						resolve(obj);
+					});
+				});
+			});
+		});
+	});
 };
 
 rq({
@@ -150,12 +317,12 @@ rq({
 	}
 }).then((body) => {
 	body = JSON.parse(body);
-	token = body.access_token;
+	token = 'Bearer ' + body.access_token;
 	if(token === undefined){
 		console.error(chalk.red('Error while authenticating application!'));
 		return;
 	}
-	
+
 	return fs.access('./subscribers.json', fs.F_OK);
 }).catch((err) => {
 	console.log(chalk.cyan('Creating subscribers file...'));
@@ -173,69 +340,45 @@ rq({
 	console.log(chalk.cyan('Creating assets folder'));
 	return fs.mkdir('./assets');
 }).then(() => {
-	var fetch = () => {
-		query.headers.Authorization = 'Bearer ' + token;
-		rq(query).then((body) => {
-			var body = JSON.parse(body);
-			async.each(body.statuses, (v, callback) => {
-				var date = new Date(v['created_at']);
-				var media = [];
-				async.each(v.entities.media, (m, cb) => {
-					var f = m['media_url_https'];
-					var target = './assets/' + m['id_str'] + getExt(f);
-					media.push(target);
-					fs.access(target, fs.F_OK).catch((err) => {
-						return download(f).pipe(dfs.createWriteStream(target));
-					}).catch((err) => {
-						console.error(chalk.red('Error while downloading image!'));
-						console.error(err.message);
-						console.error(err.stack);
-					}).then(() => {
-						console.log('Done iterating media.');
+	oldQuery.headers.Authorization = query.headers.Authorization = token;
+
+	var handle = (body) => {
+		var body = JSON.parse(body);
+
+		array.each(body.statuses, (v, callback) => {
+			saveTweet(v).then((obj) = > {
+				if(date < lastUpdate){
+					callback();
+					return;
+				}
+
+				async.each(subscribers, (v, cb) => {
+					sendTweet(v).then(() => {
 						cb();
 					});
 				}, () => {
-					if(date.getTime() >= lastUpdate){
-						console.log('Ready to send');
-						async.each(media, (m, cb) => {
-							async.each(subscribers, (s, cb) => {
-								api.sendPhoto({
-									chat_id: s,
-									photo: m
-								}).catch((err) => {
-									console.error(chalk.red('Error while sending message!'));
-									console.error(err);
-									console.error(err.stack);
-								}).then(() => {
-									console.log('Sent to ' + s);
-									cb();
-								});
-							}, () => {
-								console.log('Done iterating subscribers');
-								cb();
-							});
-						}, () => {
-							console.log('Done iterating media files');
-							callback();
-						});
-					}else{
-						console.log('Ignored');
-						callback();
-					}
+					callback();
 				});
-			}, () => {
-				console.log('Waiting for next fetch...');
-				lastUpdate = Date.now();
+			});
+		}, () => {
+			if(debug) console.log('Waiting for next fetch...');
+			lastUpdate = Date.now();
+			fs.writeFile('./last.json', JSON.stringify({last: lastUpdate})).then(() => {
 				setTimeout(fetch, 3600000);
 			});
-		}, (err) => {
+		});
+	};
+
+	var fetch = () => {
+		rq(query).then(handle, (err) => {
 			console.error(chalk.red('Error while fetching update!'));
 			setTimeout(fetch, 1800000);
 		});
 	};
-	
+
 	fetch();
 });
+
 var httpServer;
 var options;
 
