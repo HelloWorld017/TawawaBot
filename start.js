@@ -116,18 +116,18 @@ var handleHook = (message) => {
 		var sentCount = 0;
 
 		var handle = (body) => {
-			var body = JSON.parse(body);
+			return new Promise((resolve, reject) => {
+				var body = JSON.parse(body);
 
-			array.each(body.statuses, (v, callback) => {
-				saveTweet(v).then((obj) => {
-					async.each(subscribers, (v, cb) => {
-						sendTweet(v).then(() => {
-							sentCount++;
-							cb();
-						});
-					}, () => {
+				array.each(body.statuses, (v, callback) => {
+					saveTweet(v).then((obj) => {
+						return sendTweet(id, obj);
+					}).then(() => {
+						sentCount++;
 						callback();
 					});
+				}, () => {
+					resolve();
 				});
 			});
 		};
@@ -144,21 +144,26 @@ var handleHook = (message) => {
 				'User-Agent': userAgent,
 				'Authorization': token
 			}
-		}).then(handle, () => {});
-
-		rq({
-			method: 'GET',
-			uri: searchUrl,
-			qs: {
-				q: '"月曜日のたわわ　その' + number + '" from:Strangestone filter:twimg',
-				result_type: 'recent',
-				count: 1
-			},
-			headers: {
-				'User-Agent': userAgent,
-				'Authorization': token
-			}
-		}).then(handle, () => {})
+		}).then(handle, () => {}).then(() => {
+			return rq({
+				method: 'GET',
+				uri: searchUrl,
+				qs: {
+					q: '"月曜日のたわわ　その' + number + '" from:Strangestone filter:twimg',
+					result_type: 'recent',
+					count: 1
+				},
+				headers: {
+					'User-Agent': userAgent,
+					'Authorization': token
+				}
+			});
+		}).then(handle, () => {}).then(() => {
+			api.sendMessage({
+				chat_id: id,
+				text: sendCount + "개의 검색결과를 찾았습니다."
+			})
+		});
 	}
 };
 
@@ -215,7 +220,7 @@ var bearer = new Buffer(`${config.key}:${config.secret}`).toString('base64');
 var token = undefined;
 
 var getExt = (url) => {
-	return url.split('.').pop();
+	return '.' + url.split('.').pop();
 };
 
 var getName = (v) => {
@@ -286,7 +291,8 @@ var saveTweet = (v) => {
 							text: v.text,
 							text_translation: translation,
 							media: media,
-							date: new Date(v.date).getTime()
+							date: new Date(v.date).getTime(),
+							link: 'https://twitter.com/Strangestone/status/' + v.id_str
 						};
 
 						console.log(chalk.cyan('Downloaded ' + name));
@@ -295,6 +301,33 @@ var saveTweet = (v) => {
 						resolve(obj);
 					});
 				});
+			});
+		});
+	});
+};
+
+var sendTweet = (id, obj) => {
+	return new Promise((resolve, reject) => {
+		async.each(obj.media, (file, cb) => {
+			api.sendPhoto({
+				chat_id: id,
+				photo: file
+			}).then(() => {
+				cb();
+			});
+		}, () => {
+			api.sendMessage({
+				chat_id: id,
+				text: "원문 : " + obj.text + "\n" +
+					  "\n" +
+					  "번역문 (구글번역): " + obj.text_translation
+			}).then(() => {
+				return api.sendMessage({
+					chat_id: id,
+					text: "[트윗링크](" + obj.link + ")"
+				});
+			}).then(() => {
+				resolve();
 			});
 		});
 	});
@@ -353,7 +386,7 @@ rq({
 				}
 
 				async.each(subscribers, (v, cb) => {
-					sendTweet(v).then(() => {
+					sendTweet(v, obj).then(() => {
 						cb();
 					});
 				}, () => {
