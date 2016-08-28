@@ -271,7 +271,7 @@ var saveTweet = (v) => {
 					media.push(target);
 
 					fs.access(target, fs.F_OK).catch((err) => {
-						return download(f).pipe(dfs.createWriteStream(target));
+						return download(v).pipe(dfs.createWriteStream(target));
 					}).catch((err) => {
 						console.error(chalk.red('Error while downloading image!'));
 						console.error(err);
