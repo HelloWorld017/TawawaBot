@@ -37,12 +37,6 @@ var saveSubscriptions = () => {
 	return fs.writeFile('subscribers.json', JSON.stringify(subscribers));
 };
 
-var unfixchar = ((v) => {
-	return v.replace(/[\u0030-\u0039]/g, function(token) {
-		return String.fromCharCode(token.charCodeAt(0) + 65248);
-	});
-});
-
 var handleHook = (message) => {
 	var id = message.chat.id;
 	if(typeof message.text !== 'string') return;
@@ -118,59 +112,20 @@ var handleHook = (message) => {
 				  "[깃허브](https://github.com/HelloWorld017/TawawaBot) 에서 소스를 확인하실 수 있습니다."
 		});
 	}else if(message.text.startsWith('/tawawa')){
-		var number = unfixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i, ''));
-		var sentCount = 0;
+		var number = fixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
+		number = numbername.replace(/[^a-zA-Z0-9]/g, (match) => {
+			return "p" + match.codePointAt(0);
+		}).slice(0, 20);
 
-		var handle = (body) => {
-			return new Promise((resolve, reject) => {
-				body = JSON.parse(body);
-
-				async.each(body.statuses, (v, callback) => {
-					saveTweet(v).then((obj) => {
-						return sendTweet(id, obj);
-					}).then(() => {
-						sentCount++;
-						callback();
-					}).catch((e) => {
-						console.error(e);
-					});
-				}, () => {
-					resolve();
-				});
-			});
-		};
-		
-		rq({
-			method: 'GET',
-			uri: searchUrl,
-			qs: {
-				q: '"社畜諸兄にたわわをお届けします　その' + number + '" from:Strangestone filter:twimg',
-				result_type: 'recent',
-				count: 1
-			},
-			headers: {
-				'User-Agent': userAgent,
-				'Authorization': token
-			}
-		}).then(handle, () => {}).then(() => {
-			return rq({
-				method: 'GET',
-				uri: searchUrl,
-				qs: {
-					q: '"月曜日のたわわ　その' + number + '" from:Strangestone filter:twimg',
-					result_type: 'recent',
-					count: 1
-				},
-				headers: {
-					'User-Agent': userAgent,
-					'Authorization': token
-				}
-			});
-		}).then(handle, (err) => {console.error(err);}).then(() => {
+		fs.accessFile(`./assets/${number}/tweet.json`).then(() => {
+			var tweet = require(`./assets/${number}/tweet.json`);
+			sendTweet(id, tweet);
+		}, (err) => {
 			api.sendMessage({
 				chat_id: id,
-				text: sentCount + "개의 검색결과를 찾았습니다."
-			})
+				parse_mode: 'Markdown',
+				text: '존재하지 않는 번호입니다!'
+			});
 		});
 	}
 };
