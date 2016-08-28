@@ -263,7 +263,7 @@ var saveTweet = (v) => {
 							text: v.text,
 							text_translation: translation.text,
 							media: media,
-							date: new Date(v.date).getTime(),
+							date: new Date(v.created_at).getTime(),
 							link: 'https://twitter.com/Strangestone/status/' + v.id_str
 						};
 
