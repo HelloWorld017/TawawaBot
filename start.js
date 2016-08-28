@@ -19,8 +19,9 @@ var debug = (process.env.NODE_ENV || 'development') === 'development';
 var subscribers = [];
 
 try{
-	dfs.accessFileSync('./last.json')
+	dfs.accessSync('./last.json', dfs.F_OK);
 }catch(e){
+	console.log(chalk.cyan('Created last.json'));
 	dfs.writeFileSync('./last.json', JSON.stringify({
 		last: Date.now()
 	}));
@@ -117,7 +118,7 @@ var handleHook = (message) => {
 			return "p" + match.codePointAt(0);
 		}).slice(0, 20);
 
-		fs.accessFile(`./assets/${number}/tweet.json`).then(() => {
+		fs.access(`./assets/${number}/tweet.json`).then(() => {
 			var tweet = require(`./assets/${number}/tweet.json`);
 			sendTweet(id, tweet);
 		}, (err) => {
@@ -239,20 +240,28 @@ var saveTweet = (v) => {
 						console.error(chalk.red('Error while downloading image!'));
 						console.error(err);
 					}).then(() => {
-						if(debug) console.log('Done iterating media.');
+						if(debug) console.log('Done downloading media');
 						cb();
 					});
 				}, () => {
+					if(debug) console.log('Done iterating media links');
+
 					var text = v.text;
-					Object.keys(dictionary).forEach((k) => {
-						while(text.includes(k)) text = text.replace(k, dictionary[k]);
+					Object.keys(translate_dictionary).forEach((k) => {
+						if(debug) console.log('Replacing...');
+						text = text.split(k).join(translate_dictionary[k]);
 					});
 
-					translate(v.text, {from: 'ja', to: 'ko'}).then((translation) => {
-						var obj = {
+					if(debug) console.log('Done replacing');
+
+					var obj;
+
+					translate(text, {from: 'ja', to: 'ko'}).then((translation) => {
+						if(debug) console.log('Done traslating');
+						obj = {
 							name: name,
 							text: v.text,
-							text_translation: translation,
+							text_translation: translation.text,
 							media: media,
 							date: new Date(v.date).getTime(),
 							link: 'https://twitter.com/Strangestone/status/' + v.id_str
@@ -262,7 +271,7 @@ var saveTweet = (v) => {
 						return fs.writeFile(baseFolder + 'tweet.json', JSON.stringify(obj));
 					}).then(() => {
 						resolve(obj);
-					});
+					}).catch((err) => console.error(err));
 				});
 			});
 		});
@@ -287,6 +296,7 @@ var sendTweet = (id, obj) => {
 			}).then(() => {
 				return api.sendMessage({
 					chat_id: id,
+					parse_mode: 'Markdown',
 					text: "[트윗링크](" + obj.link + ")"
 				});
 			}).then(() => {
@@ -337,13 +347,14 @@ rq({
 	return fs.mkdir('./assets');
 }).then(() => {
 	oldQuery.headers.Authorization = query.headers.Authorization = token;
-
+	
 	var handle = (body) => {
 		body = JSON.parse(body);
 
 		async.each(body.statuses, (v, callback) => {
 			saveTweet(v).then((obj) => {
-				if(date < lastUpdate){
+				if(obj.date < lastUpdate){
+					if(debug) console.log('Ignoring...');
 					callback();
 					return;
 				}
@@ -366,6 +377,7 @@ rq({
 	};
 
 	var fetch = () => {
+		if(debug) console.log('Fetching...');
 		rq(query).then(handle, (err) => {
 			console.error(chalk.red('Error while fetching update!'));
 			setTimeout(fetch, 1800000);
