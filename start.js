@@ -39,7 +39,7 @@ var saveSubscriptions = () => {
 
 var unfixchar = ((v) => {
 	return v.replace(/[\uFF01-\uFF5E]/g, function(token) {
-		return String.fromCharCode(token.charCodeAt(0) - 65248);
+		return String.fromCharCode(token.charCodeAt(0) + 65248);
 	});
 });
 
