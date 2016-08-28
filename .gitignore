@@ -5,3 +5,5 @@ config.custom.json
 npm-debug.log
 sticker.jpg
 subscribers.json
+last.json
+

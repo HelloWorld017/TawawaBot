@@ -161,7 +161,7 @@ var handleHook = (message) => {
 		}).then(handle, () => {}).then(() => {
 			api.sendMessage({
 				chat_id: id,
-				text: sendCount + "개의 검색결과를 찾았습니다."
+				text: sentCount + "개의 검색결과를 찾았습니다."
 			})
 		});
 	}
