@@ -119,7 +119,7 @@ var handleHook = (message) => {
 
 		fs.access(`./assets/${number}/tweet.json`).then(() => {
 			var tweet = require(`./assets/${number}/tweet.json`);
-			sendTweet(id, tweet);
+			return sendTweet(id, tweet);
 		}, (err) => {
 			api.sendMessage({
 				chat_id: id,
