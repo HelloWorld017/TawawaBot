@@ -1,6 +1,6 @@
 var async = require('async');
 
-var sendTweet = (id, obj) => {
+module.exports = (id, obj) => {
 	return new Promise((resolve, reject) => {
 		async.each(obj.media, (file, cb) => {
 			if(debug) console.log('Sending to telegram..');

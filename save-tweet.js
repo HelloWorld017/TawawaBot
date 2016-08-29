@@ -17,7 +17,7 @@ module.exports = (v) => {
 		}
 
 		var name = getName(v.text);
-		console.log("Started downloading " + name);
+		console.log("Started downloading / loading from filesystem " + name);
 		if(debug) console.log('Debug mode, started logging');
 		if(name === false){
 			reject(new Error('Wrong Name!'));
