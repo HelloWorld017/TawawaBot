@@ -10,12 +10,11 @@ var http = require('http');
 var logger = require('morgan');
 var rq = require('request-promise');
 var telegram = require('telegram-bot-api');
-var translate = require('google-translate-api');
 
 var config = require('./config/');
 
 var useCert = (process.env.CERT === 'true');
-var debug = (process.env.NODE_ENV || 'development') === 'development';
+global.debug = (process.env.NODE_ENV || 'development') === 'development';
 var subscribers = [];
 
 try{
@@ -113,7 +112,7 @@ var handleHook = (message) => {
 				  "[깃허브](https://github.com/HelloWorld017/TawawaBot) 에서 소스를 확인하실 수 있습니다."
 		});
 	}else if(message.text.startsWith('/tawawa')){
-		var number = fixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i));
+		var number = fixchar(message.text.replace(/^\/tawawa(?:@[a-zA-Z0-9]*)?[ ]*/i, ''));
 		number = number.replace(/[^a-zA-Z0-9]/g, (match) => {
 			return "p" + match.codePointAt(0);
 		}).slice(0, 20);
@@ -148,7 +147,7 @@ app.use((req, res, next) => {
 	res.redirect('https://telegram.me/TawawaBot');
 });
 
-var api = new telegram({
+global.api = new telegram({
 	token: config.token
 });
 
@@ -178,133 +177,14 @@ var oldQuery = {
 	}
 };
 
-var translate_dictionary = config.dictionary;
+global.translate_dictionary = config.dictionary;
 
 var bearer = new Buffer(`${config.key}:${config.secret}`).toString('base64');
 var token = undefined;
 
-var getExt = (url) => {
-	return '.' + url.split('.').pop();
-};
-
-var getName = (v) => {
-	var match = v.match(/月曜日のたわわ　その([^　]*)　/);
-	if(match === null){
-		match = v.match(/社畜諸兄にたわわをお届けします　その([^　]*)　/);
-	}
-
-	if(match === null){
-		return false;
-	}
-
-	var name = fixchar(match[1]); //Fullwidth -> Halfwidth
-	name.replace(/[^a-zA-Z0-9]/g, (match) => {
-		return "p" + match.codePointAt(0);
-	});
-	return name.slice(0, 20);
-};
-
-var saveTweet = (v) => {
-	return new Promise((resolve, reject) => {
-		if(!v.text){
-			reject(new Error('Wrong Text!'));
-			return;
-		}
-
-		var name = getName(v.text);
-		if(name === false){
-			reject(new Error('Wrong Name!'));
-			return;
-		}
-
-		if(v.entities.media === undefined){
-			reject(new Error('No Media!'));
-			return;
-		}
-
-		var media = [];
-		var baseFolder = './assets/' + name + '/';
-		fs.access(baseFolder + 'tweet.json', fs.F_OK).then(() => {
-			resolve(require(baseFolder + 'tweet.json'));
-		}, () => {
-			fs.access(baseFolder, fs.F_OK).catch((err) => {
-				return fs.mkdir(baseFolder);
-			}).then(() => {
-				async.eachOf(v.entities.media.map(v => v['media_url_https']), (v, k, cb) => {
-					var target = baseFolder + k + getExt(v);
-					media.push(target);
-
-					fs.access(target, fs.F_OK).catch((err) => {
-						return download(v).pipe(dfs.createWriteStream(target));
-					}).catch((err) => {
-						console.error(chalk.red('Error while downloading image!'));
-						console.error(err);
-					}).then(() => {
-						if(debug) console.log('Done downloading media');
-						cb();
-					});
-				}, () => {
-					if(debug) console.log('Done iterating media links');
-
-					var text = v.text;
-					Object.keys(translate_dictionary).forEach((k) => {
-						if(debug) console.log('Replacing...');
-						text = text.split(k).join(translate_dictionary[k]);
-					});
-
-					if(debug) console.log('Done replacing');
-
-					var obj;
-
-					translate(text, {from: 'ja', to: 'ko'}).then((translation) => {
-						if(debug) console.log('Done traslating');
-						obj = {
-							name: name,
-							text: v.text,
-							text_translation: translation.text,
-							media: media,
-							date: new Date(v.created_at).getTime(),
-							link: 'https://twitter.com/Strangestone/status/' + v.id_str
-						};
-
-						console.log(chalk.cyan('Downloaded ' + name));
-						return fs.writeFile(baseFolder + 'tweet.json', JSON.stringify(obj));
-					}).then(() => {
-						resolve(obj);
-					}).catch((err) => console.error(err));
-				});
-			});
-		});
-	});
-};
-
-var sendTweet = (id, obj) => {
-	return new Promise((resolve, reject) => {
-		async.each(obj.media, (file, cb) => {
-			api.sendPhoto({
-				chat_id: id,
-				photo: file
-			}).then(() => {
-				cb();
-			});
-		}, () => {
-			api.sendMessage({
-				chat_id: id,
-				text: "원문 : " + obj.text + "\n" +
-					  "\n" +
-					  "번역문 (구글번역): " + obj.text_translation
-			}).then(() => {
-				/*return api.sendMessage({
-					chat_id: id,
-					parse_mode: 'Markdown',
-					text: "[트윗링크](" + obj.link + ")"
-				});
-			}).then(() => {*/
-				resolve();
-			});
-		});
-	});
-};
+var getName = require('./get-name');
+var saveTweet = require('./save-tweet');
+var sendTweet = require('./send-tweet');
 
 rq({
 	method: 'POST',
@@ -347,7 +227,7 @@ rq({
 	return fs.mkdir('./assets');
 }).then(() => {
 	oldQuery.headers.Authorization = query.headers.Authorization = token;
-	
+
 	var handle = (body) => {
 		body = JSON.parse(body);
 
